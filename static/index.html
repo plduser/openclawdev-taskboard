@@ -557,6 +557,27 @@
             color: var(--accent);
         }
         
+        .command-action-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border-radius: 6px;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .command-action-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
         .command-header {
             display: flex;
             justify-content: space-between;
@@ -619,6 +640,33 @@
             50% { 
                 opacity: 1;
                 filter: drop-shadow(0 0 8px var(--accent)) drop-shadow(0 0 12px var(--accent));
+            }
+        }
+        
+        /* Collapsed command bar thinking indicator */
+        .thinking-indicator-collapsed {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+        }
+        .thinking-indicator-collapsed .thinking-pulse {
+            width: 10px;
+            height: 10px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: collapsed-pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 8px var(--accent), 0 0 16px var(--accent);
+        }
+        @keyframes collapsed-pulse {
+            0%, 100% { 
+                transform: scale(0.8);
+                opacity: 0.6;
+                box-shadow: 0 0 4px var(--accent);
+            }
+            50% { 
+                transform: scale(1.2);
+                opacity: 1;
+                box-shadow: 0 0 12px var(--accent), 0 0 20px var(--accent);
             }
         }
         
@@ -1928,6 +1976,124 @@
             line-height: 1.5;
         }
         
+        .msg-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .msg-action-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            padding: 0.2rem 0.4rem;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            opacity: 0.7;
+            transition: opacity 0.2s, background 0.2s;
+        }
+        
+        .msg-action-btn:hover {
+            opacity: 1;
+            background: var(--bg-dark);
+        }
+        
+        /* Export checkbox column - WhatsApp style */
+        .chat-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .export-checkbox-col {
+            display: none;
+            flex-shrink: 0;
+            padding-top: 0.5rem;
+        }
+        
+        .export-mode .export-checkbox-col {
+            display: block;
+        }
+        
+        .export-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+        
+        .chat-message-body {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        /* Command bar chat message structure */
+        .jarvis-message {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .command-export-checkbox-col {
+            display: none;
+            flex-shrink: 0;
+            padding-top: 0.25rem;
+        }
+        
+        .export-mode .command-export-checkbox-col {
+            display: block;
+        }
+        
+        .command-export-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+        
+        .jarvis-message-body {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .jarvis-message .msg-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .jarvis-message .msg-actions {
+            display: flex;
+            gap: 0.25rem;
+        }
+        
+        .reply-preview {
+            background: var(--bg-dark);
+            border-left: 3px solid var(--accent);
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .reply-preview-text {
+            color: var(--text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .reply-preview-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
         .chat-message-content img {
             max-width: min(100%, 400px);
             max-height: 300px;
@@ -2354,6 +2520,9 @@
         <div class="command-bar" id="commandBar" onclick="expandCommandBar()">
             <div class="command-bar-collapsed" id="commandBarCollapsed">
                 <span class="command-bar-icon" id="commandBarIcon">🛡️</span>
+                <span class="thinking-indicator-collapsed" id="jarvisThinkingCollapsed" style="display: none;" title="Jarvis is thinking...">
+                    <span class="thinking-pulse"></span>
+                </span>
                 <span class="command-bar-preview" id="commandBarPreview">Ask Jarvis anything...</span>
                 <button class="stop-icon-btn" id="stopAllBtn" onclick="event.stopPropagation(); stopAllAgents()" title="Stop all agents">■</button>
             </div>
@@ -2371,6 +2540,7 @@
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
                         <span class="thinking-indicator" id="jarvisThinking" style="display: none;"><span class="ai-working-dot"></span><span class="ai-working-icon">🛡️</span></span>
                         <button class="stop-btn" id="stopSessionBtn" onclick="event.stopPropagation(); stopCurrentSession()" title="Stop this session">■</button>
+                        <button class="command-action-btn" onclick="event.stopPropagation(); toggleCommandBarExportMode()" title="Export to MD">📥</button>
                         <button class="command-expand-btn" onclick="event.stopPropagation(); toggleCommandFullsize()" title="Fullscreen" id="commandExpandBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><polyline points="21 3 14 10"/><polyline points="3 21 10 14"/></svg></button>
                         <button class="command-close-btn" onclick="event.stopPropagation(); collapseCommandBar()">×</button>
                     </div>
@@ -2549,6 +2719,7 @@
                                 <div id="chatWorkingAgents" style="display: flex; gap: 0.25rem; align-items: center;"></div>
                             </div>
                             <button class="stop-btn-mini" id="stopAgentBtn" onclick="stopTaskAgent()" title="Stop agent">■</button>
+                            <button class="btn btn-secondary" onclick="toggleExportMode()" title="Export to MD" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">📥</button>
                             <button class="btn btn-secondary" onclick="toggleTaskDetails()" id="toggleDetailsBtn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Hide Details</button>
                         </div>
                     </div>
@@ -2642,11 +2813,18 @@
         }
         
         function formatTimeNow() {
-            return new Date().toLocaleTimeString(undefined, {
+            const now = new Date();
+            const date = now.toLocaleDateString(undefined, {
+                timeZone: userTimezone,
+                month: 'short',
+                day: 'numeric'
+            });
+            const time = now.toLocaleTimeString(undefined, {
                 timeZone: userTimezone,
                 hour: '2-digit',
                 minute: '2-digit'
             });
+            return `${date}, ${time}`;
         }
         
         // Initialize
@@ -3098,6 +3276,8 @@
             }
         }
         
+        let replyingTo = null; // Track which message we're replying to
+        
         async function loadAndRenderComments(taskId) {
             const taskComments = await fetch(`${API}/api/tasks/${taskId}/comments`).then(r => r.json());
             comments[taskId] = taskComments;
@@ -3107,13 +3287,21 @@
             if (taskComments.length === 0) {
                 container.innerHTML = '<div class="empty-chat">No messages yet. Start the conversation!</div>';
             } else {
-                container.innerHTML = taskComments.map(c => `
-                    <div class="chat-message from-${c.agent.toLowerCase().replace(' ', '-')}">
-                        <div class="chat-message-header">
-                            <span class="agent">${escapeHtml(c.agent)}</span>
-                            <span class="time">${formatDateTime(c.created_at)}</span>
+                container.innerHTML = taskComments.map((c, idx) => `
+                    <div class="chat-message from-${c.agent.toLowerCase().replace(' ', '-')}" data-msg-id="${c.id}" data-msg-idx="${idx}">
+                        <div class="export-checkbox-col">
+                            <input type="checkbox" class="export-checkbox" data-msg-id="${c.id}">
                         </div>
-                        <div class="chat-message-content">${formatMessageContent(c.content)}</div>
+                        <div class="chat-message-body">
+                            <div class="chat-message-header">
+                                <span class="agent">${escapeHtml(c.agent)}  -  <span class="time">${formatDateTime(c.created_at)}</span></span>
+                                <span class="msg-actions">
+                                    <button class="msg-action-btn" onclick="replyToMessage(${c.id}, '${escapeHtml(c.agent)}', '${escapeHtml(c.content.substring(0, 100)).replace(/'/g, "\\'")}...')" title="Reply">↩</button>
+                                    <button class="msg-action-btn" onclick="copyMessageContent(this.closest('.chat-message'))" title="Copy">📋</button>
+                                </span>
+                            </div>
+                            <div class="chat-message-content">${formatMessageContent(c.content)}</div>
+                        </div>
                     </div>
                 `).join('');
                 
@@ -3294,17 +3482,55 @@
         function formatMessageContent(content) {
             // Check if content is an image (base64 or URL)
             if (content.startsWith('data:image') || content.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-                return `<img src="${content}" alt="Attached image">`;
+                return `<img src="${content}" alt="Attached image" class="chat-image-thumb" onclick="openImageViewer('${content}')">`;
             }
-            // Check for embedded image in content
-            const imgMatch = content.match(/\[IMAGE:(.*?)\]/);
+            
+            // Check for image paths in format: /app/data/attachments/filename.ext
+            // Convert to clickable thumbnails
+            let processedContent = content;
+            const imagePathRegex = /📷\s*\*\*Image attached:\*\*\s*`([^`]+)`[^\n]*(?:\n[^\n]*Read tool[^\n]*)?/g;
+            processedContent = processedContent.replace(imagePathRegex, (match, path) => {
+                // Convert /app/data/attachments/ to /data/attachments/ for browser access
+                const browserPath = path.replace('/app/data/', '/data/');
+                return `<img src="${browserPath}" alt="Attached image" class="chat-image-thumb" onclick="openImageViewer('${browserPath}')">`;
+            });
+            
+            // Also handle legacy [IMAGE:...] format
+            const imgMatch = processedContent.match(/\[IMAGE:(.*?)\]/);
             if (imgMatch) {
-                const text = content.replace(/\[IMAGE:.*?\]/, '').trim();
+                const imgSrc = imgMatch[1];
+                const text = processedContent.replace(/\[IMAGE:.*?\]/g, '').trim();
                 const parsedText = text ? parseMarkdown(text) : '';
-                return `${parsedText}${text ? '<br>' : ''}<img src="${imgMatch[1]}" alt="Attached image">`;
+                return `${parsedText}${text ? '<br>' : ''}<img src="${imgSrc}" alt="Attached image" class="chat-image-thumb" onclick="openImageViewer('${imgSrc}')">`;
             }
+            
             // Parse markdown
-            return parseMarkdown(content);
+            return parseMarkdown(processedContent);
+        }
+        
+        function openImageViewer(src) {
+            // Create lightbox overlay
+            const existing = document.getElementById('imageLightbox');
+            if (existing) existing.remove();
+            
+            const lightbox = document.createElement('div');
+            lightbox.id = 'imageLightbox';
+            lightbox.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+            lightbox.onclick = () => lightbox.remove();
+            
+            const img = document.createElement('img');
+            img.src = src;
+            img.style.cssText = 'max-width:90%;max-height:90%;object-fit:contain;border-radius:8px;box-shadow:0 0 20px rgba(0,0,0,0.5);';
+            img.onclick = (e) => e.stopPropagation();
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.2);border:none;color:white;font-size:2rem;width:50px;height:50px;border-radius:50%;cursor:pointer;';
+            closeBtn.onclick = () => lightbox.remove();
+            
+            lightbox.appendChild(img);
+            lightbox.appendChild(closeBtn);
+            document.body.appendChild(lightbox);
         }
         
         function parseMarkdown(content) {
@@ -3520,10 +3746,28 @@
             
             if (!content && pastedImages.length === 0 && !attachedFile) return;
             
-            // If there are pasted images, include them
+            // If there are pasted images, upload them first and get paths
             if (pastedImages.length > 0) {
-                const imageMarkup = pastedImages.map(img => `[IMAGE:${img}]`).join('\n');
-                content = content ? `${content}\n${imageMarkup}` : imageMarkup;
+                const imagePaths = [];
+                for (let i = 0; i < pastedImages.length; i++) {
+                    try {
+                        const res = await fetch('/api/upload/image', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ data: pastedImages[i], filename: `image_${i + 1}` })
+                        });
+                        if (res.ok) {
+                            const result = await res.json();
+                            imagePaths.push(result.path);
+                        }
+                    } catch (e) {
+                        console.error('Failed to upload image:', e);
+                    }
+                }
+                if (imagePaths.length > 0) {
+                    const imageMarkup = imagePaths.map(path => `📷 **Image attached:** \`${path}\`\nUse the Read tool to view this image.`).join('\n\n');
+                    content = content ? `${content}\n\n${imageMarkup}` : imageMarkup;
+                }
             }
             
             // If there's an attached file, include it as a code block
@@ -3531,6 +3775,12 @@
                 const fileHeader = `\n\n**📎 Attached file: ${attachedFile.name}**\n`;
                 const fileContent = '```\n' + attachedFile.content + '\n```';
                 content = content ? `${content}${fileHeader}${fileContent}` : `${fileHeader}${fileContent}`;
+            }
+            
+            // If replying to a message, prepend the quote
+            if (replyingTo) {
+                const quoteBlock = `> **↩ Reply to ${replyingTo.agent}:** ${replyingTo.preview}\n\n`;
+                content = quoteBlock + content;
             }
             
             // Get the assigned agent for this task
@@ -3652,6 +3902,121 @@
                 input.value = '';
                 input.style.height = '44px';
             }
+            clearReplyPreview();
+        }
+        
+        // Reply to a specific message
+        function replyToMessage(msgId, agent, preview) {
+            replyingTo = { id: msgId, agent: agent, preview: preview };
+            
+            // Show reply preview above input
+            const inputArea = document.querySelector('.chat-input-area');
+            let replyPreview = inputArea.querySelector('.reply-preview');
+            if (!replyPreview) {
+                replyPreview = document.createElement('div');
+                replyPreview.className = 'reply-preview';
+                inputArea.insertBefore(replyPreview, inputArea.firstChild);
+            }
+            replyPreview.innerHTML = `
+                <span class="reply-preview-text">↩ Replying to <strong>${agent}</strong>: ${preview}</span>
+                <button class="reply-preview-close" onclick="clearReplyPreview()">×</button>
+            `;
+            
+            // Focus the input
+            document.getElementById('chatInput')?.focus();
+        }
+        
+        function clearReplyPreview() {
+            replyingTo = null;
+            const replyPreview = document.querySelector('.chat-input-area .reply-preview');
+            if (replyPreview) replyPreview.remove();
+        }
+        
+        // Copy message content to clipboard
+        function copyMessageContent(msgEl) {
+            const content = msgEl.querySelector('.chat-message-content')?.innerText || '';
+            navigator.clipboard.writeText(content).then(() => {
+                // Show brief feedback
+                const btn = msgEl.querySelector('.msg-action-btn[title="Copy"]');
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '✓';
+                    setTimeout(() => btn.innerHTML = original, 1000);
+                }
+            });
+        }
+        
+        // Export mode state
+        let exportMode = false;
+        
+        function toggleExportMode() {
+            exportMode = !exportMode;
+            const chatMessages = document.getElementById('chatMessages');
+            
+            if (exportMode) {
+                chatMessages.classList.add('export-mode');
+                
+                // Add export controls bar
+                let exportControls = document.getElementById('exportControls');
+                if (!exportControls) {
+                    exportControls = document.createElement('div');
+                    exportControls.id = 'exportControls';
+                    exportControls.style.cssText = 'display:flex;gap:0.5rem;padding:0.5rem;background:var(--bg-column);border-bottom:1px solid var(--border);';
+                    exportControls.innerHTML = `
+                        <button class="btn btn-secondary" onclick="selectAllMessages(true)">Select All</button>
+                        <button class="btn btn-secondary" onclick="selectAllMessages(false)">Deselect All</button>
+                        <button class="btn" onclick="exportSelectedMessages()">Download .MD</button>
+                        <button class="btn btn-secondary" onclick="toggleExportMode()">Cancel</button>
+                    `;
+                    const chatSection = document.getElementById('chatSection');
+                    chatSection.insertBefore(exportControls, chatMessages);
+                }
+            } else {
+                chatMessages.classList.remove('export-mode');
+                const exportControls = document.getElementById('exportControls');
+                if (exportControls) exportControls.remove();
+                document.querySelectorAll('.export-checkbox').forEach(cb => cb.checked = false);
+            }
+        }
+        
+        function selectAllMessages(select) {
+            document.querySelectorAll('.export-checkbox').forEach(cb => cb.checked = select);
+        }
+        
+        function exportSelectedMessages() {
+            const taskId = document.getElementById('taskId').value;
+            const task = tasks.find(t => t.id == taskId);
+            const taskComments = comments[taskId] || [];
+            
+            const selectedIds = Array.from(document.querySelectorAll('.export-checkbox:checked'))
+                .map(cb => parseInt(cb.dataset.msgId));
+            
+            if (selectedIds.length === 0) {
+                alert('Please select at least one message to export.');
+                return;
+            }
+            
+            const selectedMessages = taskComments.filter(c => selectedIds.includes(c.id));
+            
+            // Build markdown content
+            let md = `# ${task?.title || 'Chat Export'}\n\n`;
+            md += `**Exported:** ${new Date().toLocaleString()}\n\n---\n\n`;
+            
+            selectedMessages.forEach(msg => {
+                md += `### ${msg.agent} — ${formatDateTime(msg.created_at)}\n\n`;
+                md += `${msg.content}\n\n---\n\n`;
+            });
+            
+            // Trigger download
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chat-export-${taskId}-${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            toggleExportMode();
         }
         
         // Paste handler for images
@@ -3791,9 +4156,14 @@
             }
             // Also show glowing shield in expanded header (reuse thinking indicator)
             const thinking = document.getElementById('jarvisThinking');
+            const thinkingCollapsed = document.getElementById('jarvisThinkingCollapsed');
             if (thinking) {
                 thinking.style.display = 'inline';
                 thinking.title = 'Reconnecting...';
+            }
+            if (thinkingCollapsed) {
+                thinkingCollapsed.style.display = 'inline-flex';
+                thinkingCollapsed.title = 'Reconnecting...';
             }
         }
         
@@ -3808,9 +4178,14 @@
             }
             // Hide the glowing shield (unless jarvisLoading is true)
             const thinking = document.getElementById('jarvisThinking');
+            const thinkingCollapsed = document.getElementById('jarvisThinkingCollapsed');
             if (thinking && !jarvisLoading) {
                 thinking.style.display = 'none';
                 thinking.title = '';
+            }
+            if (thinkingCollapsed && !jarvisLoading) {
+                thinkingCollapsed.style.display = 'none';
+                thinkingCollapsed.title = '';
             }
         }
         
@@ -4434,9 +4809,15 @@
         
         async function sendJarvisMessage() {
             const input = document.getElementById('jarvisChatInput');
-            const message = input.value.trim();
+            let message = input.value.trim();
             if (!message && commandAttachments.length === 0) return;
             if (jarvisLoading) return;
+            
+            // If replying to a message, prepend the quote
+            if (commandBarReplyingTo) {
+                message = `> **↩ Reply to ${commandBarReplyingTo.name}:** ${commandBarReplyingTo.preview}\n\n${message}`;
+                clearCommandBarReply();
+            }
             
             // Prepare attachments for sending
             const attachmentsToSend = commandAttachments.length > 0 ? [...commandAttachments] : null;
@@ -4459,9 +4840,10 @@
             jarvisHistoryBySession[currentSessionKey] = jarvisChatHistory;
             renderJarvisChat();
             
-            // Show typing indicator
+            // Show typing indicator (both expanded and collapsed)
             jarvisLoading = true;
             document.getElementById('jarvisThinking').style.display = 'inline';
+            document.getElementById('jarvisThinkingCollapsed').style.display = 'inline-flex';
             document.getElementById('jarvisSendBtn').disabled = true;
             
             try {
@@ -4526,11 +4908,15 @@
             } finally {
                 jarvisLoading = false;
                 document.getElementById('jarvisThinking').style.display = 'none';
+                document.getElementById('jarvisThinkingCollapsed').style.display = 'none';
                 document.getElementById('jarvisSendBtn').disabled = false;
             }
         }
         
         // Render chat messages
+        let commandBarReplyingTo = null;
+        let commandBarExportMode = false;
+        
         function renderJarvisChat() {
             const container = document.getElementById('jarvisChatMessages');
             const b = window.BRANDING || {};
@@ -4540,7 +4926,7 @@
             if (jarvisChatHistory.length === 0) {
                 container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">Chat with ${mainAgentName} directly from the task board.</div>`;
             } else {
-                container.innerHTML = jarvisChatHistory.map(msg => {
+                container.innerHTML = jarvisChatHistory.map((msg, idx) => {
                     const isUser = msg.role === 'user';
                     const icon = isUser ? '👤' : mainAgentEmoji;
                     const name = isUser ? 'You' : mainAgentName;
@@ -4551,24 +4937,132 @@
                         attachmentsHtml = '<div style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">' +
                             msg.attachments.map(att => {
                                 if (att.type && att.type.startsWith('image/')) {
-                                    return `<img src="${att.data}" alt="${att.filename || 'image'}" style="max-width: 200px; max-height: 150px; border-radius: 6px; cursor: pointer;" onclick="window.open('${att.data}', '_blank')">`;
+                                    return `<img src="${att.data}" alt="${att.filename || 'image'}" style="max-width: 200px; max-height: 150px; border-radius: 6px; cursor: pointer;" onclick="openImageViewer('${att.data}')">`;
                                 } else {
                                     return `<div style="padding: 0.25rem 0.5rem; background: var(--bg-dark); border-radius: 4px; font-size: 0.8rem;">${escapeHtml(att.filename || 'file')}</div>`;
                                 }
                             }).join('') + '</div>';
                     }
                     
+                    const preview = (msg.content || '').substring(0, 80).replace(/'/g, "\\'");
+                    
                     return `
-                    <div class="jarvis-message ${msg.role}">
-                        <div class="msg-header">
-                            <span>${icon} ${name}</span>
-                            <span>${msg.time || ''}</span>
+                    <div class="jarvis-message ${msg.role}" data-msg-idx="${idx}">
+                        <div class="command-export-checkbox-col">
+                            <input type="checkbox" class="command-export-checkbox" data-msg-idx="${idx}">
                         </div>
-                        <div class="msg-content">${escapeHtml(msg.content)}${attachmentsHtml}</div>
+                        <div class="jarvis-message-body">
+                            <div class="msg-header">
+                                <span>${icon} ${name}${msg.time ? '  -  ' + msg.time : ''}</span>
+                                <span class="msg-actions" style="margin-left:auto;">
+                                    <button class="msg-action-btn" onclick="replyToCommandBarMessage('${name}', '${preview}...')" title="Reply">↩</button>
+                                    <button class="msg-action-btn" onclick="copyCommandBarMessage(${idx})" title="Copy">📋</button>
+                                </span>
+                            </div>
+                            <div class="msg-content">${formatMessageContent(msg.content || '')}${attachmentsHtml}</div>
+                        </div>
                     </div>
                 `}).join('');
             }
             container.scrollTop = container.scrollHeight;
+        }
+        
+        function replyToCommandBarMessage(name, preview) {
+            commandBarReplyingTo = { name, preview };
+            
+            const inputArea = document.querySelector('.command-chat-input-area');
+            let replyPreview = inputArea.querySelector('.reply-preview');
+            if (!replyPreview) {
+                replyPreview = document.createElement('div');
+                replyPreview.className = 'reply-preview';
+                inputArea.insertBefore(replyPreview, inputArea.firstChild);
+            }
+            replyPreview.innerHTML = `
+                <span class="reply-preview-text">↩ Replying to <strong>${name}</strong>: ${preview}</span>
+                <button class="reply-preview-close" onclick="clearCommandBarReply()">×</button>
+            `;
+            document.getElementById('jarvisChatInput')?.focus();
+        }
+        
+        function clearCommandBarReply() {
+            commandBarReplyingTo = null;
+            const replyPreview = document.querySelector('.command-chat-input-area .reply-preview');
+            if (replyPreview) replyPreview.remove();
+        }
+        
+        function copyCommandBarMessage(idx) {
+            const content = jarvisChatHistory[idx]?.content || '';
+            navigator.clipboard.writeText(content).then(() => {
+                const btn = document.querySelector(`.jarvis-message[data-msg-idx="${idx}"] .msg-action-btn[title="Copy"]`);
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '✓';
+                    setTimeout(() => btn.innerHTML = original, 1000);
+                }
+            });
+        }
+        
+        function toggleCommandBarExportMode() {
+            commandBarExportMode = !commandBarExportMode;
+            const container = document.getElementById('jarvisChatMessages');
+            
+            if (commandBarExportMode) {
+                container.classList.add('export-mode');
+                let controls = document.getElementById('commandExportControls');
+                if (!controls) {
+                    controls = document.createElement('div');
+                    controls.id = 'commandExportControls';
+                    controls.style.cssText = 'display:flex;gap:0.5rem;padding:0.5rem;background:var(--bg-column);border-bottom:1px solid var(--border);';
+                    controls.innerHTML = `
+                        <button class="btn btn-secondary" onclick="selectAllCommandBarMessages(true)">All</button>
+                        <button class="btn btn-secondary" onclick="selectAllCommandBarMessages(false)">None</button>
+                        <button class="btn" onclick="exportCommandBarMessages()">Download</button>
+                        <button class="btn btn-secondary" onclick="toggleCommandBarExportMode()">Cancel</button>
+                    `;
+                    container.parentElement.insertBefore(controls, container);
+                }
+            } else {
+                container.classList.remove('export-mode');
+                const controls = document.getElementById('commandExportControls');
+                if (controls) controls.remove();
+                document.querySelectorAll('.command-export-checkbox').forEach(cb => cb.checked = false);
+            }
+        }
+        
+        function selectAllCommandBarMessages(select) {
+            document.querySelectorAll('.command-export-checkbox').forEach(cb => cb.checked = select);
+        }
+        
+        function exportCommandBarMessages() {
+            const selected = Array.from(document.querySelectorAll('.command-export-checkbox:checked'))
+                .map(cb => parseInt(cb.dataset.msgIdx));
+            
+            if (selected.length === 0) {
+                alert('Select at least one message.');
+                return;
+            }
+            
+            const b = window.BRANDING || {};
+            const mainAgentName = b.mainAgentName || 'Assistant';
+            
+            let md = `# Command Bar Chat Export\n\n**Exported:** ${new Date().toLocaleString()}\n\n---\n\n`;
+            selected.forEach(idx => {
+                const msg = jarvisChatHistory[idx];
+                if (msg) {
+                    const name = msg.role === 'user' ? 'You' : mainAgentName;
+                    md += `### ${name} — ${msg.time || ''}\n\n${msg.content}\n\n---\n\n`;
+                }
+            });
+            
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `command-bar-export-${Date.now()}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            toggleCommandBarExportMode();
         }
         
         // Handle incoming messages from WebSocket (for proactive Jarvis messages)

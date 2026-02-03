@@ -225,7 +225,9 @@ You previously worked on this task and moved it to Review. User has a follow-up 
 2. Read the context and User's question
 3. Respond helpfully by posting a comment: POST http://localhost:8080/api/tasks/{task_id}/comments
 4. Keep your response focused on what User asked
-5. Call stop-work API: POST http://localhost:8080/api/tasks/{task_id}/stop-work
+5. Call stop-work API: POST http://localhost:8080/api/tasks/{task_id}/stop-work?agent={agent_name}
+   - Add &outcome=review&reason=<summary> if work is complete
+   - Add &outcome=blocked&reason=<why> if you need more input
 
 Respond now.
 """
@@ -313,10 +315,10 @@ async def spawn_mentioned_agent(task_id: int, task_title: str, task_description:
 1. Call start-work API: POST http://localhost:8080/api/tasks/{task_id}/start-work?agent={mentioned_agent}
 2. Review the task from YOUR perspective ({mentioned_agent})
 3. Post your findings/response as a comment: POST http://localhost:8080/api/tasks/{task_id}/comments
-4. Call stop-work API: POST http://localhost:8080/api/tasks/{task_id}/stop-work
+4. Call stop-work API: POST http://localhost:8080/api/tasks/{task_id}/stop-work?agent={mentioned_agent}
 
 **Note:** You are NOT the assigned owner of this task. You're providing your expertise because you were tagged.
-Do NOT move the task to a different status — that's the owner's job.
+Do NOT move the task (no outcome param) — that's the owner's job.
 
 {AGENT_GUARDRAILS}
 
@@ -525,10 +527,12 @@ async def spawn_agent_session(task_id: int, task_title: str, task_description: s
 
 ## Instructions
 1. Call start-work API: POST http://localhost:8080/api/tasks/{task_id}/start-work?agent={agent_name}
+   - This auto-moves the card to "In Progress" if needed
 2. Analyze the task thoroughly
 3. Post your findings as a comment on the task
-4. Move to Review when complete: POST http://localhost:8080/api/tasks/{task_id}/move?status=Review&agent={agent_name}&reason=<summary>
-5. Call stop-work API: POST http://localhost:8080/api/tasks/{task_id}/stop-work
+4. When done, call stop-work with outcome: POST http://localhost:8080/api/tasks/{task_id}/stop-work?agent={agent_name}&outcome=review&reason=<summary>
+   - Use outcome=review when work is complete (auto-moves to Review)
+   - Use outcome=blocked&reason=<why> if you need input (auto-moves to Blocked)
 
 ## IMPORTANT: Stay Available
 After posting your findings, **remain available for follow-up questions**. User may reply with questions or requests for clarification. When you receive a message starting with "💬 **User replied**", respond thoughtfully and post your response as a comment on the task.
@@ -837,6 +841,11 @@ def startup():
 STATIC_PATH.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_PATH), name="static")
 
+# Serve data attachments (images uploaded via chat)
+ATTACHMENTS_PATH = DATA_DIR / "attachments"
+ATTACHMENTS_PATH.mkdir(exist_ok=True)
+app.mount("/data/attachments", StaticFiles(directory=ATTACHMENTS_PATH), name="attachments")
+
 @app.get("/")
 def read_root():
     """Serve the Kanban UI."""
@@ -1009,40 +1018,103 @@ def get_agent_tasks(agent: str):
 
 @app.post("/api/tasks/{task_id}/start-work")
 async def start_work(task_id: int, agent: str):
-    """Mark that an agent is actively working on a task."""
+    """Mark that an agent is actively working on a task. Auto-moves to In Progress."""
     with get_db() as conn:
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Task not found")
         
-        conn.execute(
-            "UPDATE tasks SET working_agent = ?, updated_at = ? WHERE id = ?",
-            (agent, datetime.now().isoformat(), task_id)
-        )
+        current_status = row["status"]
+        now = datetime.now().isoformat()
+        
+        # Auto-move to In Progress if in Backlog or Blocked
+        moved = False
+        if current_status in ["Backlog", "Blocked"]:
+            conn.execute(
+                "UPDATE tasks SET working_agent = ?, status = ?, updated_at = ? WHERE id = ?",
+                (agent, "In Progress", now, task_id)
+            )
+            moved = True
+            log_activity(task_id, "status_change", agent, f"Auto-moved from {current_status} to In Progress (agent started work)")
+        else:
+            conn.execute(
+                "UPDATE tasks SET working_agent = ?, updated_at = ? WHERE id = ?",
+                (agent, now, task_id)
+            )
         conn.commit()
         
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         result = dict(row)
     
     await manager.broadcast({"type": "work_started", "task_id": task_id, "agent": agent})
-    return {"status": "working", "task_id": task_id, "agent": agent}
+    if moved:
+        await manager.broadcast({"type": "task_updated", "task": result})
+    return {"status": "working", "task_id": task_id, "agent": agent, "moved_to": "In Progress" if moved else None}
 
 @app.post("/api/tasks/{task_id}/stop-work")
-async def stop_work(task_id: int, agent: str = None):
-    """Mark that an agent has stopped working on a task."""
+async def stop_work(task_id: int, agent: str = None, outcome: str = None, reason: str = None):
+    """Mark that an agent has stopped working on a task. 
+    
+    Args:
+        outcome: Optional - "review" or "blocked" to auto-move the card
+        reason: Optional - reason for the move (used for action items)
+    """
     with get_db() as conn:
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Task not found")
         
-        conn.execute(
-            "UPDATE tasks SET working_agent = NULL, updated_at = ? WHERE id = ?",
-            (datetime.now().isoformat(), task_id)
-        )
+        now = datetime.now().isoformat()
+        current_status = row["status"]
+        new_status = None
+        action_item = None
+        
+        # Determine target status based on outcome
+        if outcome == "review" and current_status == "In Progress":
+            new_status = "Review"
+            # Create completion action item
+            reason_text = reason or "Work completed, ready for review"
+            cursor = conn.execute(
+                "INSERT INTO action_items (task_id, agent, content, item_type, created_at) VALUES (?, ?, ?, ?, ?)",
+                (task_id, agent or "Agent", reason_text, "completion", now)
+            )
+            action_item = {"id": cursor.lastrowid, "task_id": task_id, "agent": agent or "Agent", 
+                          "content": reason_text, "item_type": "completion", "resolved": False, "created_at": now}
+        elif outcome == "blocked" and current_status == "In Progress":
+            new_status = "Blocked"
+            # Create blocker action item
+            reason_text = reason or "Blocked - awaiting input"
+            cursor = conn.execute(
+                "INSERT INTO action_items (task_id, agent, content, item_type, created_at) VALUES (?, ?, ?, ?, ?)",
+                (task_id, agent or "Agent", reason_text, "blocker", now)
+            )
+            action_item = {"id": cursor.lastrowid, "task_id": task_id, "agent": agent or "Agent", 
+                          "content": reason_text, "item_type": "blocker", "resolved": False, "created_at": now}
+        
+        # Update task
+        if new_status:
+            conn.execute(
+                "UPDATE tasks SET working_agent = NULL, status = ?, updated_at = ? WHERE id = ?",
+                (new_status, now, task_id)
+            )
+            log_activity(task_id, "status_change", agent or "Agent", f"Auto-moved to {new_status} (agent stopped work)")
+        else:
+            conn.execute(
+                "UPDATE tasks SET working_agent = NULL, updated_at = ? WHERE id = ?",
+                (now, task_id)
+            )
         conn.commit()
+        
+        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        result = dict(row)
     
     await manager.broadcast({"type": "work_stopped", "task_id": task_id})
-    return {"status": "stopped", "task_id": task_id}
+    if new_status:
+        await manager.broadcast({"type": "task_updated", "task": result})
+    if action_item:
+        await manager.broadcast({"type": "action_item_added", "task_id": task_id, "item": action_item})
+    
+    return {"status": "stopped", "task_id": task_id, "moved_to": new_status}
 
 class MoveRequest(BaseModel):
     status: str
@@ -1111,26 +1183,6 @@ async def move_task(task_id: int, status: str = None, agent: str = None, reason:
     if action_item:
         await manager.broadcast({"type": "action_item_added", "task_id": task_id, "item": action_item})
     
-    # AUTO-SPAWN: When moving to In Progress, spawn the assigned agent's session
-    # SKIP if agent already has an active session on this task (avoid re-spawning mid-conversation)
-    spawned = False
-    if status == "In Progress" and old_status != "In Progress":
-        assigned_agent = result.get("agent", "Unassigned")
-        existing_session = result.get("agent_session_key")
-        
-        if existing_session:
-            # Agent already working - don't re-spawn, just log it
-            log_activity(task_id, "skipped_spawn", "System", 
-                        f"Agent {assigned_agent} already has active session, skipping spawn")
-        elif assigned_agent in AGENT_TO_OPENCLAW_ID and assigned_agent != "User":
-            await spawn_agent_session(
-                task_id=task_id,
-                task_title=result["title"],
-                task_description=result.get("description", ""),
-                agent_name=assigned_agent
-            )
-            spawned = True
-    
     # CLEANUP: When moving to Done, clear the agent session AND working indicator
     session_cleared = False
     if status == "Done":
@@ -1153,7 +1205,7 @@ async def move_task(task_id: int, status: str = None, agent: str = None, reason:
             session_cleared = True
             print(f"🧹 Cleared agent session for task #{task_id}")
     
-    return {"status": "moved", "new_status": status, "action_item_created": action_item is not None, "agent_spawned": spawned, "session_cleared": session_cleared}
+    return {"status": "moved", "new_status": status, "action_item_created": action_item is not None, "session_cleared": session_cleared}
 
 # =============================================================================
 # COMMENTS
@@ -1187,6 +1239,49 @@ def get_comments(task_id: int):
             (task_id,)
         ).fetchall()
         return [dict(row) for row in rows]
+
+class ImageUpload(BaseModel):
+    data: str  # base64 data URL
+    filename: Optional[str] = "image"
+
+@app.post("/api/upload/image")
+async def upload_image(image: ImageUpload):
+    """Upload a base64 image and return the file path."""
+    import base64 as b64_module
+    import uuid
+    
+    attachments_dir = DATA_DIR / "attachments"
+    attachments_dir.mkdir(exist_ok=True)
+    
+    try:
+        # Extract base64 data from data URL
+        data = image.data
+        if data.startswith("data:") and ";base64," in data:
+            # Get mime type and base64 content
+            header, b64_content = data.split(",", 1)
+            mime_type = header.split(":")[1].split(";")[0]  # e.g., "image/png"
+            ext = mime_type.split("/")[1] if "/" in mime_type else "png"
+        else:
+            b64_content = data
+            ext = "png"
+        
+        if ext not in ["png", "jpg", "jpeg", "gif", "webp"]:
+            ext = "png"
+        
+        # Generate unique filename
+        img_filename = f"{uuid.uuid4().hex[:8]}_{image.filename or 'image'}"
+        if not img_filename.endswith(f".{ext}"):
+            img_filename = f"{img_filename}.{ext}"
+        
+        img_path = attachments_dir / img_filename
+        
+        # Write image file
+        with open(img_path, "wb") as f:
+            f.write(b64_module.b64decode(b64_content))
+        
+        return {"path": f"/app/data/attachments/{img_filename}", "filename": img_filename}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to save image: {e}")
 
 @app.post("/api/tasks/{task_id}/comments")
 async def add_comment(task_id: int, comment: CommentCreate):
