@@ -705,6 +705,45 @@ def init_db():
                 deleted_at TEXT NOT NULL
             )
         """)
+        
+        # Database integrity triggers - prevent NULL status/priority
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS prevent_null_status
+            BEFORE INSERT ON tasks
+            FOR EACH ROW
+            WHEN NEW.status IS NULL
+            BEGIN
+                SELECT RAISE(ABORT, 'status cannot be NULL');
+            END;
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS prevent_null_status_update
+            BEFORE UPDATE ON tasks
+            FOR EACH ROW
+            WHEN NEW.status IS NULL
+            BEGIN
+                SELECT RAISE(ABORT, 'status cannot be NULL');
+            END;
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS prevent_null_priority
+            BEFORE INSERT ON tasks
+            FOR EACH ROW
+            WHEN NEW.priority IS NULL
+            BEGIN
+                SELECT RAISE(ABORT, 'priority cannot be NULL');
+            END;
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS prevent_null_priority_update
+            BEFORE UPDATE ON tasks
+            FOR EACH ROW
+            WHEN NEW.priority IS NULL
+            BEGIN
+                SELECT RAISE(ABORT, 'priority cannot be NULL');
+            END;
+        """)
+        
         conn.commit()
 
 @contextmanager
