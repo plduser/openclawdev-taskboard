@@ -3,8 +3,7 @@
     build: .
     container_name: moltdev-taskboard
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    network_mode: host
     volumes:
       - ./data:/app/data
       - ./static:/app/static
@@ -12,5 +11,3 @@
       - .env
     environment:
       - PYTHONUNBUFFERED=1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"

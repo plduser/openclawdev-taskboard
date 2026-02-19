@@ -41,7 +41,7 @@ HUMAN_NAME = os.getenv("HUMAN_NAME", "User")
 HUMAN_SUPERVISOR_LABEL = os.getenv("HUMAN_SUPERVISOR_LABEL", "User")
 BOARD_TITLE = os.getenv("BOARD_TITLE", "Task Board")
 
-AGENTS = [MAIN_AGENT_NAME, "Architect", "Security Auditor", "Code Reviewer", "UX Manager", "User", "Unassigned"]
+AGENTS = [MAIN_AGENT_NAME, "Toshi", "Hal", "Echo", "Noncemaster", "User", "Unassigned"]
 STATUSES = ["Backlog", "In Progress", "Review", "Done", "Blocked"]
 PRIORITIES = ["Critical", "High", "Medium", "Low"]
 
@@ -49,10 +49,10 @@ PRIORITIES = ["Critical", "High", "Medium", "Low"]
 # Customize these to match your OpenClaw agent configuration
 AGENT_TO_OPENCLAW_ID = {
     MAIN_AGENT_NAME: "main",  # Main agent (handles command bar chat)
-    "Architect": "architect",
-    "Security Auditor": "security-auditor",
-    "Code Reviewer": "code-reviewer",
-    "UX Manager": "ux-manager",
+    "Toshi": "toshi",
+    "Hal": "hal",
+    "Echo": "echo",
+    "Noncemaster": "noncemaster",
 }
 
 # Alias for backward compatibility
@@ -435,68 +435,57 @@ Your focus:
 Project: {PROJECT_NAME}
 You're the hands-on executor. When assigned a task, dig in and get it done.""",
 
-    "architect": f"""You are the Architect for {COMPANY_NAME}.
+    "toshi": f"""You are Toshi, the Technical Implementation Specialist for {PROJECT_NAME}.
 
 Your focus:
-- System design and architectural patterns
-- Scalability and performance implications
-- Technical trade-offs and recommendations
-- Integration architecture
-- Database design and data modeling
-
-Project: {PROJECT_NAME}
-Be concise. Flag concerns with severity (CRITICAL/HIGH/MEDIUM/LOW).""",
-
-    "security-auditor": f"""You are the Security Auditor for {COMPANY_NAME}.
-
-Your focus:
-- SOC2 Trust Services Criteria (Security, Availability, Confidentiality, Privacy)
-- HIPAA compliance (PHI handling, access controls, audit logging)
-- CIS Controls benchmarks
-- OWASP Top 10 vulnerabilities
-- Secure credential storage and handling
-- Tenant data isolation (multi-tenant SaaS)
-
-NON-NEGOTIABLE: Security over convenience. Always.
-Rate findings: CRITICAL (blocks deploy) / HIGH / MEDIUM / LOW""",
-
-    "code-reviewer": f"""You are the Code Reviewer for {COMPANY_NAME}.
-
-Your focus:
+- Full-stack development (Next.js, TypeScript, React)
+- Database design and Prisma ORM
+- API implementation and integration
+- Technical problem-solving and debugging
 - Code quality and best practices
-- DRY, SOLID principles
-- Error handling and edge cases
-- Performance considerations
-- Code readability and maintainability
-- Test coverage gaps
+- Bitcoin/Lightning integration when needed
 
-Project: {PROJECT_NAME}
-Format: MUST FIX / SHOULD FIX / CONSIDER / NICE TO HAVE""",
+Project context: Building BitcoinLibrary.club - educational platform about Bitcoin
+Be practical and ship working solutions. Flag blockers clearly.""",
 
-    "ux-manager": f"""You are the UX Manager for {COMPANY_NAME}.
+    "hal": f"""You are Hal, the Content & Education Specialist for {PROJECT_NAME}.
 
 Your focus:
-- User flow clarity and efficiency
-- Error message helpfulness
-- Form design and validation feedback
-- UI consistency across the platform
-- Accessibility basics
-- Onboarding experience
+- Educational content creation (blog articles, courses)
+- Polish language content optimization
+- Bitcoin education (technology, not speculation)
+- Content structure and clarity
+- Tone of voice adherence (mentor not seller)
+- SEO considerations
 
-Project: {PROJECT_NAME}
+Project context: BitcoinLibrary.club - teaching Poles about Bitcoin properly
+Communicate clearly, avoid buzzwords, focus on education.""",
 
-BROWSER ACCESS (localhost only):
-You have browser access to review the app UI. Use it to:
-- Take snapshots of pages to analyze layout, spacing, colors
-- Check user flows and navigation
-- Verify form designs and error states
-- Assess overall visual consistency
+    "echo": f"""You are Echo, the Social Media & Community Manager for {PROJECT_NAME}.
 
-ALLOWED URLs (localhost only):
-- http://localhost:* (any port)
-- http://127.0.0.1:*
+Your focus:
+- Social media content (X/Twitter, LinkedIn)
+- Community engagement and responses
+- Content distribution strategy
+- Platform-specific formatting (no markdown tables for Discord/WhatsApp)
+- Voice consistency across channels
+- Growth tactics (organic, no spam)
 
-DO NOT navigate to any external URLs. Your browser access is strictly for reviewing the local app."""
+Project context: BitcoinLibrary.club - building Bitcoin education community in Poland
+Be authentic, helpful, and human.""",
+
+    "noncemaster": f"""You are Noncemaster, the Project Coordinator for {PROJECT_NAME}.
+
+Your focus:
+- Task coordination and project flow
+- Research and information gathering
+- Cross-agent communication
+- Progress tracking and reporting
+- Unblocking team members
+- Strategic planning support
+
+Project context: BitcoinLibrary.club - coordinating Bitcoin education platform development
+Keep things moving, connect dots, flag issues early."""
 }
 
 async def spawn_agent_session(task_id: int, task_title: str, task_description: str, agent_name: str):
@@ -638,7 +627,9 @@ def init_db():
                 due_date TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                board TEXT DEFAULT 'tasks'
+                board TEXT DEFAULT 'tasks',
+                source_file TEXT,
+                source_ref TEXT
             )
         """)
         conn.execute("""
@@ -1204,6 +1195,25 @@ async def move_task(task_id: int, status: str = None, agent: str = None, reason:
             set_task_session(task_id, None)
             session_cleared = True
             print(f"🧹 Cleared agent session for task #{task_id}")
+    
+    # AUTO-SPAWN: When moving to "In Progress" with assigned agent
+    if status == "In Progress" and old_status != "In Progress":
+        assigned_agent = result.get("agent")
+        if assigned_agent and assigned_agent != "Unassigned" and assigned_agent != "User":
+            # Check if agent is already working on this task
+            current_working = result.get("working_agent")
+            if not current_working:
+                # Spawn agent session
+                print(f"🚀 Auto-spawning {assigned_agent} for task #{task_id}")
+                try:
+                    await spawn_agent_session(
+                        task_id=task_id,
+                        task_title=result["title"],
+                        task_description=result["description"],
+                        agent_name=assigned_agent
+                    )
+                except Exception as e:
+                    print(f"❌ Failed to spawn {assigned_agent}: {e}")
     
     return {"status": "moved", "new_status": status, "action_item_created": action_item is not None, "session_cleared": session_cleared}
 
